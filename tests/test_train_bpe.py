@@ -1,4 +1,5 @@
 import json
+import pickle
 import time
 
 from .adapters import run_train_bpe
@@ -79,6 +80,8 @@ def test_train_bpe_special_tokens(snapshot):
     for word_bytes in vocabs_without_specials:
         assert b"<|" not in word_bytes
 
+    ss_data = pickle.load(open("tests/_snapshots/test_train_bpe_special_tokens.pkl", "rb"))
+    print(ss_data)
     snapshot.assert_match(
         {
             "vocab_keys": set(vocab.keys()),

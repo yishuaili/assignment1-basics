@@ -9,6 +9,9 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
+from cs336_basics.tokenizer import *
+from cs336_basics.train_bpe import train_bpe
+from cs336_basics.model import Linear, Embedding, RMSNorm, PWFFN, RotaryPositionalEmbedding
 
 
 def run_linear(
@@ -30,7 +33,9 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    l = Linear(d_in, d_out)
+    l.load_state_dict({"weight": weights})
+    return l.forward(in_features)
 
 
 def run_embedding(
@@ -52,7 +57,9 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    e = Embedding(vocab_size, d_model)
+    e.load_state_dict({"weight": weights})
+    return e.forward(token_ids)
 
 
 def run_swiglu(
@@ -84,7 +91,9 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    s = PWFFN(d_model, d_ff)
+    s.load_state_dict({"w_1": w1_weight, "w_2": w2_weight, "w_3": w3_weight})
+    return s.forward(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -201,7 +210,8 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    r = RotaryPositionalEmbedding(theta, d_k, max_seq_len)
+    return r.forward(in_query_or_key, token_positions)
 
 
 def run_transformer_block(
@@ -379,7 +389,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    r = RMSNorm(d_model, eps)
+    r.load_state_dict({"weight": weights})
+    return r.forward(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -558,7 +570,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    return Tokenizer(vocab, merges, special_tokens)
 
 
 def run_train_bpe(
@@ -588,4 +600,4 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    return train_bpe(input_path, vocab_size, special_tokens, **kwargs)
