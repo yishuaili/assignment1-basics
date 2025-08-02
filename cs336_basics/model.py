@@ -3,7 +3,8 @@ import torch.nn as nn
 import numpy as np
 import math
 from typing import Optional
-from einops import rearrange
+from einops import rearrange, einsum
+import torch.nn.functional as F
 
 class Linear(nn.Module):
     def __init__(self, in_features: int, out_features: int, device=None, dtype=None):
@@ -126,3 +127,42 @@ class RotaryPositionalEmbedding(nn.Module):
         combined = torch.stack((new_x0, new_x1), dim=-1)
         back_to_shape = rearrange(combined, '... d n -> ... (d n)')
         return back_to_shape
+    
+
+def softmax(x: torch.Tensor, i: int):
+    max_v = x.max(dim=i, keepdim=True).values
+
+    x_sub = x - max_v
+
+    exp_x = torch.exp(x_sub)
+    result = exp_x / exp_x.sum(dim=i, keepdim=True)
+    return result
+
+
+def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask):
+    d_k = q.shape[-1]
+    q_k = einsum(q, k, "... q d, ... k d -> ... q k")
+    q_k_m = q_k.masked_fill(~mask, float('-inf'))
+    q_k_s = F.softmax(q_k_m / (d_k ** 0.5), dim=-1)
+    v_o = einsum(q_k_s, v, "... q k, ... k d -> ... q d")
+    return v_o
+
+    # # Compute the dot product of Q and K
+    # dot_product = torch.matmul(q, k.transpose(-1, -2))
+    
+    # # Scale the dot product
+    # scaled_dot_product = dot_product / np.sqrt(k.size(-1))
+    
+    # # Apply the mask
+    # if mask is not None:
+    #     scaled_dot_product = scaled_dot_product.masked_fill(mask, float('-inf'))
+
+    # # Compute the attention weights
+    # attention_weights = F.softmax(scaled_dot_product, dim=-1)
+
+    
+    # # Compute the weighted sum of the values
+    # output = torch.matmul(attention_weights, v)
+    
+    # return output
+
