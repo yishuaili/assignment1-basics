@@ -11,7 +11,7 @@ from torch import Tensor
 
 from cs336_basics.tokenizer import *
 from cs336_basics.train_bpe import train_bpe
-from cs336_basics.model import Linear, Embedding, RMSNorm, PWFFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention
+from cs336_basics.model import Linear, Embedding, RMSNorm, PWFFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention, scaled_dot_product_attention_2, MultiHeadAttention, MultiHeadAttentionRope
 
 
 def run_linear(
@@ -148,7 +148,31 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    print(f"q_proj_weight values: {q_proj_weight}")
+    print(f"q_proj_weight shape: {q_proj_weight.shape}")
+    print(f"d_model, num_heads shape: {d_model}, {num_heads}")
+    
+    a = MultiHeadAttention(d_model, num_heads)
+    
+    state_dict = {
+        "w_q.weight": q_proj_weight,
+        "w_k.weight": k_proj_weight,
+        "w_v.weight": v_proj_weight,
+        "w_o.weight": o_proj_weight,
+    }
+    a.load_state_dict(state_dict, strict=False)
+
+    # a = TMultiHeadAttention(d_model, num_heads)
+    # a.load_state_dict({"q_proj.weight": q_proj_weight, "k_proj.weight": k_proj_weight, "v_proj.weight": v_proj_weight, "output_proj.weight": o_proj_weight}, strict=False)
+    # print(f"a.q_proj.weight: {a.q_proj.weight}")
+    result = a.forward(in_features)
+    if torch.any(torch.isnan(result)):
+        print("Warning: The final_output tensor contains NaNs.")
+    else:
+        print("No NaNs found in final_output.")
+    print(f"result shape: {result.shape}")
+    print(f"result values: {result}")
+    return result
 
 
 def run_multihead_self_attention_with_rope(
@@ -188,7 +212,17 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    a = MultiHeadAttentionRope(d_model, num_heads, max_seq_len, theta)
+    
+    state_dict = {
+        "w_q.weight": q_proj_weight,
+        "w_k.weight": k_proj_weight,
+        "w_v.weight": v_proj_weight,
+        "w_o.weight": o_proj_weight,
+    }
+    a.load_state_dict(state_dict, strict=False)
+    result = a.forward(in_features, token_positions)
+    return result
 
 
 def run_rope(
