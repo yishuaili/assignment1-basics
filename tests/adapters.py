@@ -11,7 +11,7 @@ from torch import Tensor
 
 from cs336_basics.tokenizer import *
 from cs336_basics.train_bpe import train_bpe
-from cs336_basics.model import Linear, Embedding, RMSNorm, PWFFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention, scaled_dot_product_attention_2, MultiHeadAttention, MultiHeadAttentionRope
+from cs336_basics.model import Linear, Embedding, RMSNorm, PWFFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention, MultiHeadAttention, MultiHeadAttentionRope, TransformerBlock, TransformerLM
 
 
 def run_linear(
@@ -318,7 +318,23 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta)
+    mhattention_state_dict = {
+        "w_q.weight": weights['attn.q_proj.weight'],
+        "w_k.weight": weights['attn.k_proj.weight'],
+        "w_v.weight": weights['attn.v_proj.weight'],
+        "w_o.weight": weights['attn.output_proj.weight'],
+    }
+    block.mhattention.load_state_dict(mhattention_state_dict, strict=False)
+    block.norm_1.load_state_dict({"weight": weights['ln1.weight']})
+    block.norm_2.load_state_dict({"weight": weights['ln2.weight']})
+    pwffn_state_dict = {
+        "w_1": weights['ffn.w1.weight'], 
+        "w_2": weights['ffn.w2.weight'], 
+        "w_3": weights['ffn.w3.weight']
+        }
+    block.pwffn.load_state_dict(pwffn_state_dict)
+    return block.forward(in_features)
 
 
 def run_transformer_lm(
@@ -400,7 +416,39 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    t = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta)
+
+    # Embedding weight
+    t.token_embedding.load_state_dict({"weight": weights['token_embeddings.weight']})
+
+    # Layer weight
+    for l_num in range(num_layers):
+        
+        block = t.layers[l_num]
+        mhattention_state_dict = {
+            "w_q.weight": weights['layers.' + str(l_num) + '.attn.q_proj.weight'],
+            "w_k.weight": weights['layers.' + str(l_num) + '.attn.k_proj.weight'],
+            "w_v.weight": weights['layers.' + str(l_num) + '.attn.v_proj.weight'],
+            "w_o.weight": weights['layers.' + str(l_num) + '.attn.output_proj.weight'],
+        }
+        block.mhattention.load_state_dict(mhattention_state_dict, strict=False)
+        block.norm_1.load_state_dict({"weight": weights['layers.' + str(l_num) + '.ln1.weight']})
+        block.norm_2.load_state_dict({"weight": weights['layers.' + str(l_num) + '.ln2.weight']})
+
+        pwffn_state_dict = {
+            "w_1": weights['layers.' + str(l_num) + '.ffn.w1.weight'], 
+            "w_2": weights['layers.' + str(l_num) + '.ffn.w2.weight'], 
+            "w_3": weights['layers.' + str(l_num) + '.ffn.w3.weight']
+        }
+        block.pwffn.load_state_dict(pwffn_state_dict)
+
+    # Final norm
+    t.norm.load_state_dict({"weight": weights['ln_final.weight']})
+
+    # Final linear
+    t.linear.load_state_dict({"weight": weights['lm_head.weight']})
+
+    return t.forward(in_indices)
 
 
 def run_rmsnorm(

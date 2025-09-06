@@ -339,3 +339,61 @@ class MultiHeadAttentionRope(nn.Module):
         print(f"Final output shape: {final_output.shape}")
 
         return final_output
+    
+class TransformerBlock(nn.Module):
+    def __init__(
+            self,
+            d_model: int,
+    num_heads: int,
+    d_ff: int,
+    max_seq_len: int,
+    theta: float,
+    ):
+        super().__init__()
+        self.d_model = d_model
+        self.norm_1 = RMSNorm(d_model)
+        self.norm_2 = RMSNorm(d_model)
+        self.mhattention = MultiHeadAttentionRope(d_model, num_heads, max_seq_len, theta)
+        self.pwffn = PWFFN(d_model, d_ff)
+
+    def forward(self, x):
+        x_norm = self.norm_1.forward(x)
+        seq_length = x.shape[-2]
+        token_position = torch.arange(seq_length)
+        x_att = self.mhattention.forward(x_norm, token_position)
+        x_add = x + x_att
+
+        ff_x_norm = self.norm_2.forward(x_add)
+        ff_x_ff = self.pwffn(ff_x_norm)
+        ff_x_add = x_add + ff_x_ff
+        return ff_x_add
+
+
+
+class TransformerLM(nn.Module):
+    def __init__(
+            self,
+            vocab_size: int, 
+            context_length: int,
+            d_model: int,
+            num_layers: int,
+            num_heads: int,
+            d_ff: int,
+            rope_theta: float
+    ):
+        super().__init__()
+        self.token_embedding = Embedding(vocab_size, d_model)
+        self.layers = nn.ModuleList(
+            TransformerBlock(d_model, num_heads, d_ff, context_length, rope_theta) for _ in range(num_layers)
+        )
+        self.norm = RMSNorm(d_model)
+        self.linear = Linear(d_model, vocab_size)
+
+    def forward(self, x):
+        x = self.token_embedding.forward(x)
+        for l in self.layers:
+            x = l.forward(x)
+        x = self.norm.forward(x)
+        x = self.linear.forward(x)
+        # x = softmax(x, -1)
+        return x
