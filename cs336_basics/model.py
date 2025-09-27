@@ -397,3 +397,19 @@ class TransformerLM(nn.Module):
         x = self.linear.forward(x)
         # x = softmax(x, -1)
         return x
+    
+
+def cross_entropy_loss(logits, y):
+    # log sum exp trick
+    log_sum_exp = torch.logsumexp(logits, dim=-1, keepdim=False)
+
+    # expand y
+    expand_y = torch.unsqueeze(y, -1)
+
+    # log exp
+    log_exp = torch.gather(logits, dim=-1, index=expand_y).squeeze(-1)
+
+    avg_loss = torch.mean(log_sum_exp - log_exp)
+    return avg_loss
+
+
