@@ -2,7 +2,7 @@ import regex as re
 from typing import Dict, Tuple, Iterable, List
 from tqdm import tqdm
 
-#from cs336_basics.utils.io import get_tokenizer_from_vocab_merges_path
+from cs336_basics.utils.io import get_tokenizer_from_vocab_merges_path
 
 GPT2_PRETOKENIZER_PATTERN = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 

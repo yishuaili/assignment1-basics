@@ -25,27 +25,29 @@ def _read_text_file(input_path: str, num_worker: int, special_tokens: Iterable[s
     Read the text file at the given path.
     Return the text as pretoken frequency table.
     """
-    # Read the input text file
-    with open(input_path, "r") as file:
-        text = file.read()
-    
-    # Remove special tokens from the text
-    for token in special_tokens:
-        text = text.replace(token, "")
-
     logging.info("Initializing pretoken frequency table")
     if num_worker == 1:
+        # Read the input text file
+        with open(input_path, "r") as file:
+            text = file.read()
+        
+        # Remove special tokens from the text
+        for token in special_tokens:
+            text = text.replace(token, "")
         pretokens = _find_pretokens(text)
     else:
-        boundaries = find_chunk_boundaries(text, num_worker, "<|endoftext|>".encode("utf-8"))
-        text_chunks = []
-        for start, end in zip(boundaries[:-1], boundaries[1:]):
-            text.seek(start)
-            chunk = text.read(end - start).decode("utf-8", errors="ignore")
-            text_chunks.append(chunk)
+        with open(input_path, "rb") as file:
+            boundaries = find_chunk_boundaries(file, num_worker, "<|endoftext|>".encode("utf-8"))
+            text_chunks = []
+            for start, end in zip(boundaries[:-1], boundaries[1:]):
+                file.seek(start)
+                chunk = file.read(end - start).decode("utf-8", errors="ignore")
+                for token in special_tokens:
+                    chunk = chunk.replace(token, "")
+                text_chunks.append(chunk)
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_worker) as executor:
-            pretokens = Counter(executor.map(_find_pretokens, text_chunks))
-        pretokens = sum(pretokens, Counter())
+            pretokens_iter = executor.map(_find_pretokens, text_chunks)
+            pretokens = sum(pretokens_iter, Counter())
     
     gen_tuple_of_bytes = lambda pretoken: tuple([bytes([b]) for b in pretoken.encode("utf-8")])
     pretoken_freq = {}
