@@ -14,7 +14,6 @@ from cs336_basics.optimizer import AdamW, learning_rate_schedule, gradient_clipp
 class TrainingConfig:
     # Dataset 
     dataset_name: str
-    context_length: int
     batch_size: int
     device: Optional[str] = field(default="cuda" if torch.cuda.is_available() else "cpu")
     
@@ -53,11 +52,11 @@ class TrainingConfig:
 
     def __post_init__(self):
         if self.warmup_iters is None:
-            self.warmup_iters = int(self.total_iters * 0.01)
+            self.warmup_iters = max(1, int(self.total_iters * 0.01))
         if self.log_interval is None:
-            self.log_interval = int(self.total_iters * 0.001)
+            self.log_interval = max(1, int(self.total_iters * 0.001))
         if self.eval_interval is None:
-            self.eval_interval = int(self.total_iters * 0.01)
+            self.eval_interval = max(1, int(self.total_iters * 0.01))
         if self.wandb_logging:
             assert self.wandb_project is not None, 'wandb_project must be provided if wandb_logging is True'
             assert self.wandb_run_name is not None, 'wandb_run_name must be provided if wandb_logging is True'
@@ -76,7 +75,16 @@ logging.info(f'Training with config: {asdict(config)}')
 dataset = Dataset(**asdict(config))
 
 # loading the model
-model = TransformerLM(**asdict(config))
+model_config = {
+    "vocab_size": config.vocab_size,
+    "context_length": config.context_length,
+    "d_model": config.d_model,
+    "num_layers": config.num_layers,
+    "num_heads": config.num_heads,
+    "d_ff": config.d_ff,
+    "rope_theta": config.rope_theta,
+}
+model = TransformerLM(**model_config)
 model.to(config.device)
 if config.init_from != 'scratch':
     ckpt_dir = f'data/out/checkpoints/{config.init_from}'

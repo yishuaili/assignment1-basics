@@ -211,20 +211,16 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         print(f"w_q values: {self.w_q.weight}")
 
-        print(f"Input tensor x shape: {x.shape}")
 
         Q = self.w_q(x)
         K = self.w_k(x)
         V = self.w_v(x)
-        
-        print(f"Q, K, V shapes after linear projection: {Q.shape}, {K.shape}, {V.shape}")
 
 
         Q = rearrange(Q, "... s (h d) -> ... h s d", h=self.num_heads)
         K = rearrange(K, "... s (h d) -> ... h s d", h=self.num_heads)
         V = rearrange(V, "... s (h d) -> ... h s d", h=self.num_heads)
 
-        print(f"Q, K, V shapes after rearrange: {Q.shape}, {K.shape}, {V.shape}")
 
         # Add rope
         # token_positions = torch.arange(x.shape[-2])
@@ -233,10 +229,10 @@ class MultiHeadAttention(nn.Module):
 
         # Scale dot product attention
         causal_mask = torch.tril(torch.ones(x.shape[-2], x.shape[-2], dtype=torch.bool), diagonal=0)
-        print(f"Causal mask shape: {causal_mask.shape}")
+
         #out = scaled_dot_product_attention(Q, K, V, causal_mask)
         out = scaled_dot_product_attention(Q, K, V, causal_mask)
-        print(f"Output of scaled_dot_product_attention shape: {out.shape}")
+        
 
         if torch.any(torch.isnan(out)):
             print("Warning: The out tensor contains NaNs.")
@@ -244,9 +240,9 @@ class MultiHeadAttention(nn.Module):
             print("No NaNs found in out.")
         # Combine heads
         out = rearrange(out, "... h s d -> ... s (h d)")
-        print(f"Output after combining heads shape: {out.shape}")
+        
         final_output = self.w_o(out)
-        print(f"Final output shape: {final_output.shape}")
+
 
         return final_output
     
@@ -306,15 +302,13 @@ class MultiHeadAttentionRope(nn.Module):
         Q = self.w_q(x)
         K = self.w_k(x)
         V = self.w_v(x)
-        
-        print(f"Q, K, V shapes after linear projection: {Q.shape}, {K.shape}, {V.shape}")
 
 
         Q = rearrange(Q, "... s (h d) -> ... h s d", h=self.num_heads)
         K = rearrange(K, "... s (h d) -> ... h s d", h=self.num_heads)
         V = rearrange(V, "... s (h d) -> ... h s d", h=self.num_heads)
 
-        print(f"Q, K, V shapes after rearrange: {Q.shape}, {K.shape}, {V.shape}")
+    
 
         # Add rope
         # token_positions = torch.arange(x.shape[-2])
@@ -323,10 +317,10 @@ class MultiHeadAttentionRope(nn.Module):
 
         # Scale dot product attention
         causal_mask = torch.tril(torch.ones(x.shape[-2], x.shape[-2], dtype=torch.bool), diagonal=0)
-        print(f"Causal mask shape: {causal_mask.shape}")
+        
         #out = scaled_dot_product_attention(Q, K, V, causal_mask)
         out = scaled_dot_product_attention(q_p, k_p, V, causal_mask)
-        print(f"Output of scaled_dot_product_attention shape: {out.shape}")
+        
 
         if torch.any(torch.isnan(out)):
             print("Warning: The out tensor contains NaNs.")
@@ -334,9 +328,9 @@ class MultiHeadAttentionRope(nn.Module):
             print("No NaNs found in out.")
         # Combine heads
         out = rearrange(out, "... h s d -> ... s (h d)")
-        print(f"Output after combining heads shape: {out.shape}")
+        
         final_output = self.w_o(out)
-        print(f"Final output shape: {final_output.shape}")
+        
 
         return final_output
     
